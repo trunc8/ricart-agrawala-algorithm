@@ -1,37 +1,68 @@
+import java.net.*; 
+import java.io.*;
 
-public class Client {
-	public void connect(int node_no)
+public class Client extends Node {
+	
+	Socket client_socket;   
+	DataOutputStream client_dout; 
+	
+	int port_no;
+	
+	public Client(int port_no)
 	{
-		//fetch ip_addt and port no of the node
-		//connect to server and return sock id
+		this.port_no=port_no;
+	}
+	public void connect(int port_no)
+	{
+		
+	    Socket socket            = null; 
+	    try
+        { 
+        	client_socket = new Socket("localhost", port_no); 
+			client_dout    = new DataOutputStream(client_socket.getOutputStream()); 
+            
+        } 
+       
+        catch(Exception i) 
+        { 
+            System.out.println(i); 
+        } 
+	   
 	}
 	
 	
-	public int write_msg(int sock_id, String msg) 
-	{
-		int res=-1;
-		//socket write 
-		return res;
+	
+	
+	public void send_request(int req_no,int node_no)
+	{ 
+	
+		try
+		{
+
+  			client_dout.writeUTF("REQUEST:"+Integer.toString(node_no)+":"+Integer.toString(req_no));
+		    
+		}
+		catch(Exception e)
+		{
+			System.out.println("Exception:"+e);
+		}
 		
 	}
 	
-	public boolean send_request(int req_no,int node_no)
-	{ 
-		boolean res=false;
-	    //invoke connect 
-		//invoke writemsg
-		//check return value and return true or false 
-	    
-		return res;
-	}
-	
-	public boolean send_reply(int node_id,String msg)
+	public void send_reply(int node_id,String msg)
 	{
-		boolean res=false;
-		// invoke connect method for node passed as argument
-		// invoke write_msg 
-		//check return value and return true or false 
-		return res;
+		
+		try
+		{
+
+		System.out.println("Sending reply to Node-"+node_id); 
+		client_dout.writeUTF("REPLY:"+Integer.toString(node_id)+":OK");
+	    
+		}
+		catch(Exception e)
+		{
+			System.out.println("Exception:"+e);
+		}
 	}
 
 }

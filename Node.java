@@ -1,120 +1,229 @@
 import java.util.*;
+import java.io.*;
+import java.sql.Timestamp;
 
-//semaphores to be defined and added wherever needed
+
+
 
 public class Node {
-	int node_id;
-	boolean enter_cs;
-	int max_nodes;
-	int max_req_no;
-	int curr_req_no;
-	int no_of_pending_req;
-	boolean req_cs_entry;
+	static int node_id;
+	static boolean enter_cs;
+	static int max_nodes;
+	static int max_req_no;
+	static int curr_req_no;
+	static public int no_of_pending_req;
+	static boolean req_cs_entry;
+	int no_of_times;
 	List<String> ip_addr = new ArrayList<String> ();
 	List<Integer> port_no = new ArrayList<Integer> ();
-	List<Integer> def_list = new ArrayList<Integer> (); 
 	
-	Client cliObj=new Client();
-	Server serObj=new Server();
+	static List<Integer> def_list = new ArrayList<Integer> (); 
+	static List<Client> cliObj=new ArrayList<Client>();
+	static List<Server> serObj=new ArrayList<Server>();
+	static List<Thread> serThreads=new ArrayList<Thread>();
 	
-	public Node(int id) {
-		this.node_id=id;
-		this.enter_cs=false;
-		this.max_req_no=0;
-		this.curr_req_no=0;
-		this.no_of_pending_req=0;
-		this.req_cs_entry=false;
+	Timestamp ts;
+	
+	public Node(int id, int ctr) {
+		Node.node_id=id;
+		Node.enter_cs=false;
+		Node.max_req_no=0;
+		Node.curr_req_no=0;
+		Node.no_of_pending_req=0;
+		Node.req_cs_entry=false;
+		this.no_of_times=ctr;
+
 		
 	}
 	public Node()
 	{
-		//System.out.println("");
+
 	}
+	
 	
 	public void read_config_file()
 	{
-		// reads the config.txt located in the current directory and loads the ip address and port numbers of the neighbouring nodes
-		// file shall contain max no of nodes in first line and the following for each of the nodes from the second line 
-			//NodeId, IPaddr,Port no
-		// assign max_nodes
-		// read and add into lists ip_addr and port_no
-		//initialise def_list with default value of -1
-
+				
+		try
+		{
+		File file = new File("config.txt");
+		BufferedReader br = new BufferedReader(new FileReader(file)); 
+		String str; 
+		String[] words;
+		int node_no;
+		boolean firstentry=true;
+		
+		while ((str = br.readLine()) != null) 
+		{
+		  
+		    if(firstentry)
+		    {
+		    	max_nodes=Integer.parseInt(str);
+//		    	System.out.println(str);
+		    	firstentry=false;
+		    	
+		    }
+		    else
+		    {
+//		    	  System.out.println(str);
+		    	words=str.split(" ");
+		    	node_no=Integer.parseInt(words[0]);
+		    	ip_addr.add(node_no,words[1]);
+		    	port_no.add(node_no,Integer.parseInt(words[2]));
+		    	def_list.add(node_no,-1);
+		    }
+		    
+		}
+		br.close();
+		}
+		catch(Exception e)
+		{
+			System.out.println("Exception:"+e);
+		}
 		
 	}
 	
 	public void cs_pre_requisite()
 	{
-		this.curr_req_no=this.max_req_no+1;
-		this.req_cs_entry=true;
-		for(int i=0;i<this.max_nodes;i++)
+		Node.curr_req_no=Node.max_req_no+1;
+		Node.req_cs_entry=true;
+		Node.no_of_pending_req=Node.max_nodes-1;
+
+		for(int i=0;i<Node.max_nodes;i++)
 		{
-			if(i==this.node_id)
+			if(i==Node.node_id)
 				continue;
-			else
-			{
-				//send msg to n-1 nodes
-				this.cliObj.send_request(curr_req_no, i);
-			}
+			    Node.cliObj.get(i).send_request(curr_req_no, Node.node_id);
+			
 		}
 		
 		
 		
 	}
 	
-	public void process_deferrec_requests() {
+	public void process_deferred_requests() {
 		for(int i=0;i<def_list.size();i++)
 		{
 			if(def_list.get(i)!=-1)
 			{
-				//deferred req
-				//invoke process request method 
+				
 				String node_no_str=Integer.toString(i);
 				String req_no_str=Integer.toString(def_list.get(i));
-				serObj.process_request(node_no_str, req_no_str);
+				Node.serObj.get(i).process_request(node_no_str, req_no_str);
 			}
 		}
 	}
 	
 	
+
 	public void Node_main()
 	{
-		// read config file
+		
+		try
+		{
+		
+//		String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date());
 		read_config_file();
 		
-		
-		for(int i=0;i<this.max_nodes;i++)
+			
+		for(int i=0;i<Node.max_nodes;i++)
 		{
-			if(i==this.node_id)
-				continue;
+			
+			if(i==Node.node_id)
+			{
+
+				Node.serObj.add(i,new Server(0,i));
+				Thread t1 = new Thread(Node.serObj.get(i));
+				Node.serThreads.add(i,t1);
+
+			}
 			else
 			{
-				// create n-1 server threads
-				Server ser_obj=new Server(port_no.get(i));
-				ser_obj.run();
+
+				int temp_port_no=port_no.get(i);
+				Node.serObj.add(i,new Server(temp_port_no+Node.node_id,i));
+				Thread t1 = new Thread(Node.serObj.get(i));
+				Node.serThreads.add(i,t1);
+				t1.start();
 			}	
 				
 		}
 		
-		while(true)
+		Thread.sleep(10000);
+		
+		
+		for(int i=0;i<Node.max_nodes;i++)
 		{
-			//pre requisite for entering critical section
-		    try {
-		    	
-		    
-			while(enter_cs!=true);
-			//enter critical section
-			System.out.println("Node-"+node_id+" entered Critical Section");
-			Thread.sleep(50);
 			
-			//process deferred requests
+			if(i==Node.node_id)
+			{
+				int temp_port_no=port_no.get(i);
+				for(int j=0;j<Node.max_nodes;j++)
+				{
+					if(j==Node.node_id)
+					{
+						cliObj.add(j,new Client(temp_port_no+j));
+					}
+					else
+					{
+						cliObj.add(j,new Client(temp_port_no+j));
+						cliObj.get(j).connect(temp_port_no+j);
+						
+					}
+					
+				}
+							
+			}
+			
+		}
+
+		for(int i=0;i<no_of_times;i++)
+		{
+				Thread.sleep(10000);
+
+		    	cs_pre_requisite();
+		    
+		    	while(Node.enter_cs==false)
+		    	{
+		    		Thread.sleep(10);
+		    	}
+				//enter critical section
+		    	ts = new Timestamp(System.currentTimeMillis()); 
+				System.out.println("Node-"+node_id+" entered Critical Section @ "+ts);
+				Thread.sleep(2000);
 				
-		    }
+				//reset variables
+				Node.enter_cs=false;
+				Node.req_cs_entry=false;
+				ts = new Timestamp(System.currentTimeMillis()); 
+				System.out.println("Node-"+node_id+" exited Critical Section @ "+ts);
+			
+				process_deferred_requests();
+				
+			
+			
+		}
+
+		Thread.sleep(10000);
+		
+		for(int i=0;i<Node.max_nodes;i++)
+		{
+			if(i!=Node.node_id)
+			{
+				serObj.get(i).server.close();
+				
+			}
+		}
+		System.out.println("Completed");
+		System.exit(0);
+
+		    
+		}
 		    catch(Exception e)
 		    {
 		    	System.out.println("Exception:"+e);
 		    }
-		}
+		
 	}
 
 }
