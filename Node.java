@@ -110,6 +110,7 @@ public class Node {
 				String node_no_str=Integer.toString(i);
 				String req_no_str=Integer.toString(def_list.get(i));
 				Node.serObj.get(i).process_request(node_no_str, req_no_str);
+				def_list.set(i,-1);
 			}
 		}
 	}
